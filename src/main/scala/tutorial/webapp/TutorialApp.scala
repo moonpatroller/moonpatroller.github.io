@@ -1,6 +1,7 @@
 package tutorial.webapp
 
-import org.scalajs.jquery.jQuery
+import scala.scalajs.js.Dynamic.global
+
 import org.scalajs.dom
 import dom.document
 import dom.html.Canvas
@@ -8,35 +9,108 @@ import dom.CanvasRenderingContext2D
 import org.scalajs.dom.raw.{MouseEvent, KeyboardEvent, HTMLImageElement}
 
 
-object TutorialApp {
-  def main(args: Array[String]): Unit = {
-    jQuery(() => setupUI())
-  }
+object TutorialApp
+{
+    def main(args: Array[String]): Unit = {
+        setupUI()
+    }
 
-    // def appendPar(targetNode: dom.Node, text: String): Unit = {
-    //   val parNode = document.createElement("p")
-    //   val textNode = document.createTextNode(text)
-    //   parNode.appendChild(textNode)
-    //   targetNode.appendChild(parNode)
-    // }
+    def setupUI(): Unit = {
+        val canvas = document.getElementById("tutorial").asInstanceOf[Canvas]
+        val world = new World(canvas)
+        world.draw(0.0)
+    }
+}
 
-  def addClickedMessage(): Unit = {
-    jQuery("body").append("<p>You clicked the button!</p>")
-  }
+case class KeenSprite(var xPos: Int, var yPos: Int)
+{
+    case class Position(x: Int, y: Int, width: Int, height: Int)
 
-  def setupUI(): Unit = {
-    // jQuery("#click-me-button").click(() => addClickedMessage())
-    // jQuery("body").append("<p>Hello World!</p>")
+    val standingRight = Position(2, 34, 11, 31)
+    val walkingRight = Vector(
+        Position(16, 34, 17, 31),
+        Position(34, 34, 17, 31),
+        Position(54, 34, 17, 31),
+        Position(72, 34, 17, 31)
+    )
+    val standingLeft = Position(163, 34, 12, 31)
+    val walkingLeft = Vector(
+        Position(178, 34, 17, 31),
+        Position(196, 34, 17, 31),
+        Position(216, 34, 17, 31),
+        Position(233, 34, 17, 31)
+    )
 
-    // val $ = jQuery
-    // val canvas = $("#tutorial")
-    // canvas.css("cursor", "none")
+    val guyImg: HTMLImageElement = dom.document.createElement("img").asInstanceOf[HTMLImageElement]
+    guyImg.src = "keen_clear.png"
 
-    val canvas = document.getElementById("tutorial").asInstanceOf[Canvas]
-    val world = new World(canvas)
-    world.draw(0.0)
-  }
+    sealed trait Direction
+    case object Left extends Direction
+    case object Right extends Direction
 
+    sealed trait Action
+    case object Walk extends Action
+    case object Stand extends Action
+
+    var dir: Direction = Right
+    var action: Action = Stand
+    var cycle = 0
+
+    def rest(): Unit = {
+        action = Stand
+        cycle = 0
+    }
+
+    def walkLeft(maxXPos: Int, maxYPos: Int): Unit = {
+        global.console.log("walk left")
+        dir = Left
+        action = Walk
+        nextCycle()
+        xPos = if (xPos < 1) maxXPos - 1 else xPos - 1
+    }
+
+    def walkRight(maxXPos: Int, maxYPos: Int): Unit = {
+        global.console.log("walk right")
+        dir = Right
+        action = Walk
+        nextCycle()
+        xPos = (xPos + 1) % maxXPos
+    }
+
+    def walkUp(maxXPos: Int, maxYPos: Int): Unit = {
+        action = Walk
+        nextCycle()
+        yPos = if (yPos < 1) maxYPos - 1 else yPos - 1
+    }
+
+    def walkDown(maxXPos: Int, maxYPos: Int): Unit = {
+        action = Walk
+        nextCycle()
+        yPos = (yPos + 1) % maxYPos
+    }
+
+    def nextCycle(): Unit = cycle = (cycle + 1) % 36
+
+    def draw(ctx: CanvasRenderingContext2D, viewLeft: Int, viewTop: Int): Unit =
+    {
+        (dir, action) match {
+            case (Left, Stand) =>
+                val p = standingLeft
+                ctx.drawImage(guyImg, p.x, p.y, p.width, p.height, xPos - viewLeft, yPos - viewTop, p.width, p.height)
+
+            case (Left, Walk) =>
+                val p = walkingLeft(cycle / 9 % walkingLeft.length)
+                ctx.drawImage(guyImg, p.x, p.y, p.width, p.height, xPos - viewLeft, yPos - viewTop, p.width, p.height)
+
+            case (Right, Stand) =>
+                val p = standingRight
+                ctx.drawImage(guyImg, p.x, p.y, p.width, p.height, xPos - viewLeft, yPos - viewTop, p.width, p.height)
+
+            case (Right, Walk) =>
+                val p = walkingRight(cycle / 9 % walkingRight.length)
+                ctx.drawImage(guyImg, p.x, p.y, p.width, p.height, xPos - viewLeft, yPos - viewTop, p.width, p.height)
+        }
+    }
 }
 
 class World(canvas: Canvas)
@@ -49,40 +123,15 @@ class World(canvas: Canvas)
         val height = 66
         val width = 56
         ctx.drawImage(crystalsImg, 278, n * 68, width, height, x, y, width, height)
-        // ctx.strokeRect(x, y, width, height);
     }
 
-    case class Guy(xPos: Int, yPos: Int)
-    {
-
-        var guyImg: HTMLImageElement = dom.document.createElement("img").asInstanceOf[HTMLImageElement]
-        guyImg.src = "keen_clear.png"
-
-        var facing = "left"
-
-        def draw(viewLeft: Int, viewTop: Int): Unit =
-        {
-            facing match {
-                case "left" =>
-                    val width = 176 - 163
-                    val height = 31
-                    ctx.drawImage(guyImg, 163, 34, width, height, xPos - viewLeft, yPos - viewTop, width, height)
-
-                case "right" | "up" | "down" =>
-                    var width = 11
-                    var height = 31
-                    ctx.drawImage(guyImg, 2, 34, width, height, xPos - viewLeft, yPos - viewTop, width, height)
-            }
-        }
-    }
-
-    case class World(widthPx: Int, heightPx: Int)
+    case class GameWorld(widthPx: Int, heightPx: Int)
     {
         val rocks: Array[Array[Int]] = Array.fill(100, 100) { Math.floor(Math.random() * 20).toInt }
     }
 
-    var world = World(100000, 100000)
-    var guy = Guy(100, 100)
+    var world = GameWorld(100000, 100000)
+    var guy = KeenSprite(100, 100)
 
     var viewLeft = 0
     var viewTop = 0
@@ -124,15 +173,18 @@ class World(canvas: Canvas)
             case "ArrowDown" =>
                 keyboard.up   = false;
                 keyboard.down = true;
+            case _ =>
         }
     });
 
     document.addEventListener("keyup", (event: KeyboardEvent) => {
+
         event.key match {
             case "ArrowLeft" =>  keyboard.left  = false
             case "ArrowRight" => keyboard.right = false
             case "ArrowUp" =>    keyboard.up    = false
             case "ArrowDown" =>  keyboard.down  = false
+            case _ =>
         }
     });
 
@@ -144,24 +196,19 @@ class World(canvas: Canvas)
         ctx.fillRect(0, 0, 500, 500)
 
         if (keyboard.left) {
-            guy = guy.copy(xPos = guy.xPos - 1)
-            if (guy.xPos < 0) {
-                guy = guy.copy(xPos = world.widthPx - 1) 
-            }
-            guy.facing = "left"
+            guy.walkLeft(world.widthPx, world.heightPx)
         }
         else if (keyboard.right) {
-            guy = guy.copy(xPos = (guy.xPos + 1) % world.widthPx) 
-            guy.facing = "right"
+            guy.walkRight(world.widthPx, world.heightPx)
         }
         else if (keyboard.up) {
-            guy = guy.copy(yPos = guy.yPos - 1)
-            if (guy.yPos < 0) {
-                guy = guy.copy(yPos = world.heightPx - 1)
-            }
+            guy.walkUp(world.widthPx, world.heightPx)
         }
         else if (keyboard.down) {
-            guy = guy.copy(yPos = (guy.yPos + 1) % world.heightPx)
+            guy.walkDown(world.widthPx, world.heightPx)
+        }
+        else {
+            guy.rest()
         }
 
         if (guy.yPos > viewTop + canvas.height * 0.8) {
@@ -193,12 +240,9 @@ class World(canvas: Canvas)
             }
         }
 
-        guy.draw(viewLeft, viewTop);
+        guy.draw(ctx, viewLeft, viewTop);
         pointer.draw()
 
-        // ctx.strokeStyle = "rgb(0,0,0)"
-        // ctx.strokeRect(0, 0, 500, 500)
         document.defaultView.requestAnimationFrame(draw)
-
     }
 }

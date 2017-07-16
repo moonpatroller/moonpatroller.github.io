@@ -1,27 +1,23 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-    <title>The Scala.js Tutorial</title>
-  </head>
 
-  <body>
+<head>
+  <meta charset="UTF-8">
+  <title>The Scala.js Tutorial</title>
+</head>
 
-<canvas id="tutorial" width="500" height="500">
-	Canvas not supported.
-</canvas>
-<div id="info"> </div>
+<body>
+  <canvas id="tutorial" width="500" height="500">
+  	Canvas not supported.
+  </canvas>
+  <div id="info"> </div>
 
-    <button id="click-me-button" type="button">
-      Click me!
-    </button>
+  <!-- Include JavaScript dependencies -->
+  <script type="text/javascript" src="./target/scala-2.12/moonpatroller-github-io-jsdeps.js"></script>
 
-	<!-- Include JavaScript dependencies -->
-    <script type="text/javascript" src="./target/scala-2.12/moonpatroller-github-io-jsdeps.js"></script>
+  <!-- Include Scala.js compiled code -->
+  <script type="text/javascript" src="./target/scala-2.12/moonpatroller-github-io-fastopt.js"></script>
 
-    <!-- Include Scala.js compiled code -->
-    <script type="text/javascript" src="./target/scala-2.12/moonpatroller-github-io-fastopt.js"></script>
-
-  </body>
+</body>
 
 </html>

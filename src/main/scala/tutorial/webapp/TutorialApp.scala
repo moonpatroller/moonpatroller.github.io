@@ -93,24 +93,31 @@ case class KeenSprite(var xPos: Int, var yPos: Int)
 
     def draw(ctx: CanvasRenderingContext2D, viewLeft: Int, viewTop: Int): Unit =
     {
-        (dir, action) match {
-            case (Left, Stand) =>
-                val p = standingLeft
-                ctx.drawImage(guyImg, p.x, p.y, p.width, p.height, xPos - viewLeft, yPos - viewTop, p.width, p.height)
-
-            case (Left, Walk) =>
-                val p = walkingLeft(cycle / 9 % walkingLeft.length)
-                ctx.drawImage(guyImg, p.x, p.y, p.width, p.height, xPos - viewLeft, yPos - viewTop, p.width, p.height)
-
-            case (Right, Stand) =>
-                val p = standingRight
-                ctx.drawImage(guyImg, p.x, p.y, p.width, p.height, xPos - viewLeft, yPos - viewTop, p.width, p.height)
-
-            case (Right, Walk) =>
-                val p = walkingRight(cycle / 9 % walkingRight.length)
-                ctx.drawImage(guyImg, p.x, p.y, p.width, p.height, xPos - viewLeft, yPos - viewTop, p.width, p.height)
-        }
+        val p = 
+            (dir, action) match {
+                case (Left,  Stand) => standingLeft
+                case (Left,  Walk) => walkingLeft(cycle / 9 % walkingLeft.length)
+                case (Right, Stand) => standingRight
+                case (Right, Walk) => walkingRight(cycle / 9 % walkingRight.length)
+            }
+        ctx.drawImage(guyImg, p.x, p.y, p.width, p.height, viewLeft, viewTop, p.width, p.height)
     }
+}
+
+class Pointer(x: Int, y: Int)
+{
+    def draw(ctx: CanvasRenderingContext2D): Unit =
+    {
+        ctx.beginPath()
+        ctx.arc(this.x, this.y, 2, 0, 2 * Math.PI, true)
+        ctx.stroke()
+    }
+}
+
+case class BoundedInt(min: Int, max: Int, value: Int)
+{
+    def incr(): BoundedInt = this.copy(value = Math.min(this.value + 1, this.max))
+    def decr(): BoundedInt = this.copy(value = Math.max(this.value - 1, this.min))
 }
 
 class World(canvas: Canvas)
@@ -133,49 +140,43 @@ class World(canvas: Canvas)
     var world = GameWorld(100000, 100000)
     var guy = KeenSprite(100, 100)
 
-    var viewLeft = 0
-    var viewTop = 0
+    var viewLeft = BoundedInt(canvas.width  / 5, canvas.width  * 4 / 5, canvas.width / 2)
+    var viewTop  = BoundedInt(canvas.height / 5, canvas.height * 4 / 5, canvas.height / 2)
 
     val ctx = canvas.getContext("2d").asInstanceOf[CanvasRenderingContext2D]
     val r = scala.util.Random
     val bgColor = s"rgb(${r.nextInt(256)},${r.nextInt(256)},${r.nextInt(256)})"
 
-    case class Pointer(x: Int, y: Int)
-    {
-        def draw(): Unit =
-        {
-            ctx.beginPath()
-            ctx.arc(this.x, this.y, 2, 0, 2 * Math.PI, true)
-            ctx.stroke()
-        }
-    }
-    var pointer = Pointer(0, 0)
+    var pointer = new Pointer(0, 0)
 
     case class Keyboard(var left: Boolean, var right: Boolean, var up: Boolean, var down: Boolean)
     val keyboard = Keyboard(false, false, false, false)
 
-    canvas.style.cursor = "none";
+    canvas.style.cursor = "none"
     canvas.addEventListener("mousemove", (event: MouseEvent) => {
-        pointer = Pointer(event.clientX.toInt, event.clientY.toInt)
+        pointer = new Pointer(event.clientX.toInt, event.clientY.toInt)
     })
+    canvas.addEventListener("contextmenu", (e: MouseEvent) => { // Not compatible with IE < 9
+        e.preventDefault()
+    }, false)
 
     document.addEventListener("keydown", (event: KeyboardEvent) => {
         event.key match {
             case "ArrowLeft" =>
-                keyboard.left  = true;
-                keyboard.right = false;
+                keyboard.left  = true
+                keyboard.right = false
             case "ArrowRight" =>
-                keyboard.left  = false;
-                keyboard.right = true;
+                keyboard.left  = false
+                keyboard.right = true
             case "ArrowUp" =>
-                keyboard.up   = true;
-                keyboard.down = false;
+                keyboard.up   = true
+                keyboard.down = false
             case "ArrowDown" =>
-                keyboard.up   = false;
-                keyboard.down = true;
+                keyboard.up   = false
+                keyboard.down = true
             case _ =>
         }
-    });
+    })
 
     document.addEventListener("keyup", (event: KeyboardEvent) => {
 
@@ -186,7 +187,7 @@ class World(canvas: Canvas)
             case "ArrowDown" =>  keyboard.down  = false
             case _ =>
         }
-    });
+    })
 
     def draw(idk: Double): Unit =
     {
@@ -197,51 +198,47 @@ class World(canvas: Canvas)
 
         if (keyboard.left) {
             guy.walkLeft(world.widthPx, world.heightPx)
+            viewLeft = viewLeft.decr()
         }
         else if (keyboard.right) {
             guy.walkRight(world.widthPx, world.heightPx)
+            viewLeft = viewLeft.incr()
         }
         else if (keyboard.up) {
             guy.walkUp(world.widthPx, world.heightPx)
+            viewTop = viewTop.decr()
         }
         else if (keyboard.down) {
             guy.walkDown(world.widthPx, world.heightPx)
+            viewTop = viewTop.incr()
         }
         else {
             guy.rest()
         }
 
-        if (guy.yPos > viewTop + canvas.height * 0.8) {
-            viewTop = Math.floor(guy.yPos - canvas.height * 0.8).toInt
-        }
-        else if (guy.yPos < viewTop + canvas.height * 0.2) {
-            viewTop = Math.floor(guy.yPos - canvas.height * 0.2).toInt
-        }
-
-        if (guy.xPos > viewLeft + canvas.width * 0.8) {
-            viewLeft = Math.floor(guy.xPos - canvas.width * 0.8).toInt
-        }
-        else if (guy.xPos < viewLeft + canvas.width * 0.2) {
-            viewLeft = Math.floor(guy.xPos - canvas.width * 0.2).toInt
-        }
-
-        // col and row here are for rocks, constrain to appearing every 100px.
-        val firstCol = Math.min(world.widthPx  / 100 - 1, Math.max(0, Math.floor(viewLeft / 100))).toInt
-        val firstRow = Math.min(world.heightPx / 100 - 1, Math.max(0, Math.floor(viewTop  / 100))).toInt
+        val firstCol = guy.xPos / 100
+        val firstRow = guy.yPos / 100
+        println((firstRow, firstCol))
 
         for (x <- 0 until 6;
              y <- 0 until 6) 
         {
-            val rockNum = world.rocks(firstCol + x)(firstRow + y)
-            if (rockNum < 5) {
+            val rockNum = world.rocks((firstRow + y) % 100)((firstCol + x) % 100)
+            if (rockNum < 5)
+            {
                 drawCrystal(rockNum, 
-                    x * 100 + 25 - (viewLeft % 100), 
-                    y * 100 + 25 - (viewTop  % 100))
+                    // x * 100 + 25 - (viewLeft.value % 100), 
+                    // y * 100 + 25 - (viewTop.value  % 100))
+                    x * 100 + 25 - (guy.xPos % 100), 
+                    y * 100 + 25 - (guy.yPos % 100))
             }
         }
 
-        guy.draw(ctx, viewLeft, viewTop);
-        pointer.draw()
+        guy.draw(ctx, viewLeft.value, viewTop.value)
+        pointer.draw(ctx)
+
+        val info = document.getElementById("info")
+        info.innerHTML = s"viewTop: ${viewTop.value}, guy.yPos: ${guy.yPos}, viewLeft: ${viewLeft.value}, guy.xPos: ${guy.xPos}, firstRow: $firstRow, firstCol: $firstCol"
 
         document.defaultView.requestAnimationFrame(draw)
     }

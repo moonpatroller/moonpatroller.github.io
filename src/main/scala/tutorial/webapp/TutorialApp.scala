@@ -1,13 +1,12 @@
 package tutorial.webapp
 
-import scala.scalajs.js
 import scala.scalajs.js.Dynamic.global
 
 import org.scalajs.dom
 import dom.document
 import dom.html.Canvas
 import dom.CanvasRenderingContext2D
-import org.scalajs.dom.raw.{MouseEvent, KeyboardEvent, HTMLImageElement}
+import dom.raw.{MouseEvent, KeyboardEvent, HTMLImageElement}
 
 
 object TutorialApp
@@ -42,7 +41,7 @@ case class KeenSprite(var xPos: Int, var yPos: Int)
         Position(233, 34, 17, 31)
     )
 
-    val guyImg: HTMLImageElement = dom.document.createElement("img").asInstanceOf[HTMLImageElement]
+    val guyImg: HTMLImageElement = document.createElement("img").asInstanceOf[HTMLImageElement]
     guyImg.src = "keen_clear.png"
 
     sealed trait Direction
@@ -92,7 +91,7 @@ case class KeenSprite(var xPos: Int, var yPos: Int)
 
     def getLaserOffset(): (Int, Int) = (7, 15)
 
-    def draw(ctx: CanvasRenderingContext2D, viewLeft: Int, viewTop: Int): Unit =
+    def draw(ctx: CanvasRenderingContext2D, canvasX: Int, canvasY: Int): Unit =
     {
         val p = 
             (dir, action) match {
@@ -101,76 +100,27 @@ case class KeenSprite(var xPos: Int, var yPos: Int)
                 case (Right, Stand) => standingRight
                 case (Right, Walk) => walkingRight(cycle / 9 % walkingRight.length)
             }
-        ctx.drawImage(guyImg, p.x, p.y, p.width, p.height, viewLeft, viewTop, p.width, p.height)
+        ctx.drawImage(guyImg, p.x, p.y, p.width, p.height, canvasX, canvasY, p.width, p.height)
     }
-}
-
-case class Pointer(x: Int, y: Int)
-{
-    def draw(ctx: CanvasRenderingContext2D): Unit =
-    {
-        ctx.beginPath()
-        ctx.arc(this.x, this.y, 2, 0, 2 * Math.PI, true)
-        ctx.stroke()
-    }
-}
-
-class Laser
-{
-    var laserCount = 0
-
-    def getCount(): Int = laserCount
-
-    val sound: js.Dynamic = 
-        js.Dynamic.newInstance(js.Dynamic.global.Howl)(
-            js.Dictionary("src" -> js.Array("laser.mp3"))
-        )
-
-    def incr(): Unit = {
-        if (laserCount == 0)
-        {
-            sound.play()
-        }
-        laserCount += 1
-    }
-
-    def stop(): Unit = {
-        if (laserCount != 0)
-        {
-            sound.stop()
-            laserCount = 0
-        }
-    }
-}
-
-case class BoundedInt(min: Int, max: Int, value: Int)
-{
-    def incr(): BoundedInt = this.copy(value = Math.min(this.value + 1, this.max))
-    def decr(): BoundedInt = this.copy(value = Math.max(this.value - 1, this.min))
 }
 
 class World(canvas: Canvas)
 {
-    var crystalsImg: HTMLImageElement = dom.document.createElement("img").asInstanceOf[HTMLImageElement]
+    var crystalsImg: HTMLImageElement = document.createElement("img").asInstanceOf[HTMLImageElement]
     crystalsImg.src = "crystals_clear.png"
 
-    def drawCrystal(n: Int, x: Int, y: Int, isHighlighted: Boolean, drawHP: Boolean, laserCount: Int): Unit =
+    def drawCrystal(n: Int, x: Int, y: Int, drawPercentMeter: Boolean, percentMeterFull: Int): Unit =
     {
         val height = 66
         val width = 56
         ctx.drawImage(crystalsImg, 278, n * 68, width, height, x, y, width, height)
-        if (isHighlighted)
+        if (drawPercentMeter)
         {
-            ctx.beginPath()
-            ctx.strokeStyle = "#0f0"
-            ctx.arc(x + 28, y + 33, 33, 0, 2 * Math.PI, true)
-            ctx.stroke()
-
             ctx.fillStyle = "#000"
             ctx.fillRect(x, y - 10, width, 10)
 
             ctx.fillStyle = "#99f"
-            ctx.fillRect(x, y - 10, width * laserCount / 100, 10)
+            ctx.fillRect(x, y - 10, width * percentMeterFull / 100, 10)
 
             ctx.beginPath()
             ctx.lineWidth = 2
@@ -180,16 +130,13 @@ class World(canvas: Canvas)
         }
     }
 
-    case class GameWorld(widthPx: Int, heightPx: Int)
-    {
-        val rocks: Array[Array[Int]] = Array.fill(100, 100) { Math.floor(Math.random() * 30).toInt }
-    }
-
-    var world = GameWorld(100000, 100000)
+    val widthPx = 100000
+    val heightPx = 100000
+    var world = GameWorld(1000, 1000)
     var guy = KeenSprite(100, 100)
 
-    var viewLeft = BoundedInt(canvas.width  / 5, canvas.width  * 4 / 5, canvas.width / 2)
-    var viewTop  = BoundedInt(canvas.height / 5, canvas.height * 4 / 5, canvas.height / 2)
+    var viewX = BoundedInt(canvas.width  / 5, canvas.width  * 4 / 5, guy.xPos)
+    var viewY = BoundedInt(canvas.height / 5, canvas.height * 4 / 5, guy.yPos)
 
     val ctx = canvas.getContext("2d").asInstanceOf[CanvasRenderingContext2D]
     val bgColor = {
@@ -268,21 +215,21 @@ class World(canvas: Canvas)
         ctx.fillStyle = bgColor
         ctx.fillRect(0, 0, 500, 500)
 
-        if (keyboard.left) {
-            guy.walkLeft(world.widthPx, world.heightPx)
-            viewLeft = viewLeft.decr()
+        if (keyboard.left && !world.intersects(guy.xPos - 1, guy.yPos)) {
+            guy.walkLeft(widthPx, heightPx)
+            viewX = viewX.decr()
         }
         else if (keyboard.right) {
-            guy.walkRight(world.widthPx, world.heightPx)
-            viewLeft = viewLeft.incr()
+            guy.walkRight(widthPx, heightPx)
+            viewX = viewX.incr()
         }
         else if (keyboard.up) {
-            guy.walkUp(world.widthPx, world.heightPx)
-            viewTop = viewTop.decr()
+            guy.walkUp(widthPx, heightPx)
+            viewY = viewY.decr()
         }
         else if (keyboard.down) {
-            guy.walkDown(world.widthPx, world.heightPx)
-            viewTop = viewTop.incr()
+            guy.walkDown(widthPx, heightPx)
+            viewY = viewY.incr()
         }
         else {
             guy.rest()
@@ -293,59 +240,57 @@ class World(canvas: Canvas)
 
         var highlightedCoords = None: Option[(Int, Int)]
 
-        for (x <- 0 until 6;
-             y <- 0 until 6) 
+        for (row <- -6 until 6;
+             col <- -6 until 6) 
         {
-            val rockX = (firstRow + y) % 100
-            val rockY = (firstCol + x) % 100
-            val rockNum = world.rocks(rockX)(rockY)
+            val curRow = (firstRow + row + 1000) % 1000
+            val curCol = (firstCol + col + 1000) % 1000
+            val rockNum = world.rocks(curRow)(curCol)
             if (rockNum < 5)
             {
-                val rockCanvasX = x * 100 + 25 - (guy.xPos % 100)
-                val rockCanvasY = y * 100 + 25 - (guy.yPos % 100)
+                val rockCanvasX = col * 100 + 25 - (guy.xPos % 100) + viewX.value
+                val rockCanvasY = row * 100 + 25 - (guy.yPos % 100) + viewY.value
                 val dx = pointer.x - (rockCanvasX + 28)
                 val dy = pointer.y - (rockCanvasY + 33)
                 val isHighlighted = dx * dx + dy * dy < 25 * 25
                 if (isHighlighted)
                 {
-                    highlightedCoords = Some((rockX, rockY))
+                    highlightedCoords = Some((curRow, curCol))
                 }
-                drawCrystal(rockNum, rockCanvasX, rockCanvasY, isHighlighted, rightButtonDown, laser.getCount())
+                drawCrystal(rockNum, rockCanvasX, rockCanvasY, isHighlighted && rightButtonDown, laser.getCount())
             }
         }
 
-        guy.draw(ctx, viewLeft.value, viewTop.value)
+        guy.draw(ctx, viewX.value, viewY.value)
 
         // draw laser
         if (rightButtonDown)
         {
             highlightedCoords match { 
-                case Some((rockX, rockY)) =>
+                case Some((curRow, curCol)) =>
                     laser.incr()
                     if (laser.getCount() >= 100)
                     {
                         laser.stop()
-                        world.rocks(rockX)(rockY) = 100
+                        world.rocks(curRow)(curCol) = 100
                         rightButtonDown = false
                     }
                 case None => 
-                    laser.stop()
+                    // laser.stop()
                     rightButtonDown = false
             }
 
             ctx.lineWidth = 2
             ctx.lineCap = "round"
-    
-            // ctx.strokeStyle = "#0f0"
-            val grad = ctx.createLinearGradient(viewLeft.value + guyWidthOffset, viewTop.value + guyHeightOffset, pointer.x, pointer.y)
+
+            val grad = ctx.createLinearGradient(viewX.value + guyWidthOffset, viewY.value + guyHeightOffset, pointer.x, pointer.y)
             for (i <- 0 until laserColors.length) {
-                println(i + ": " + ((laser.getCount() + i) % laserColors.length))
                 grad.addColorStop(0.25 * i, laserColors((laser.getCount() / 2 + i) % laserColors.length))
             }
             ctx.strokeStyle = grad
 
             ctx.beginPath()
-            ctx.moveTo(viewLeft.value + guyWidthOffset, viewTop.value + guyHeightOffset)
+            ctx.moveTo(viewX.value + guyWidthOffset, viewY.value + guyHeightOffset)
             ctx.lineTo(pointer.x, pointer.y)
             ctx.stroke()
         }
@@ -357,7 +302,7 @@ class World(canvas: Canvas)
         pointer.draw(ctx)
 
         val info = document.getElementById("info")
-        info.innerHTML = s"viewTop: ${viewTop.value}, guy.yPos: ${guy.yPos}, viewLeft: ${viewLeft.value}, guy.xPos: ${guy.xPos}, firstRow: $firstRow, firstCol: $firstCol"
+        info.innerHTML = s"viewY: ${viewY.value}, guy.yPos: ${guy.yPos}, viewX: ${viewX.value}, guy.xPos: ${guy.xPos}, firstRow: $firstRow, firstCol: $firstCol"
 
         document.defaultView.requestAnimationFrame(draw)
     }

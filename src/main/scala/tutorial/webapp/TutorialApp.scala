@@ -215,19 +215,19 @@ class World(canvas: Canvas)
         ctx.fillStyle = bgColor
         ctx.fillRect(0, 0, 500, 500)
 
-        if (keyboard.left && !world.intersects(guy.xPos - 1, guy.yPos)) {
+        if (keyboard.left && !world.intersects(guy.xPos - 1, guy.yPos + 15)) {
             guy.walkLeft(widthPx, heightPx)
             viewX = viewX.decr()
         }
-        else if (keyboard.right) {
+        else if (keyboard.right && !world.intersects(guy.xPos + 1, guy.yPos + 15)) {
             guy.walkRight(widthPx, heightPx)
             viewX = viewX.incr()
         }
-        else if (keyboard.up) {
+        else if (keyboard.up && !world.intersects(guy.xPos, guy.yPos - 1 + 15)) {
             guy.walkUp(widthPx, heightPx)
             viewY = viewY.decr()
         }
-        else if (keyboard.down) {
+        else if (keyboard.down && !world.intersects(guy.xPos, guy.yPos + 1 + 15)) {
             guy.walkDown(widthPx, heightPx)
             viewY = viewY.incr()
         }
